@@ -10,6 +10,9 @@ DOCUMENTATION = r'''
 module: auth
 
 short_description: authenticates against a REST API and returns an authentication token or other mechanism by which to continue authentication
+
+requirements:
+    - requests 2.31.0
 '''
 
 EXAMPLES = r'''
@@ -21,20 +24,36 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
+import requests
 
 def run_module():
 
     module_args = dict(
-        argument = dict(type='str', required=False),
+        url       = dict(type='str', required=True),
+        auth_type = dict(type='str', required=True, choices=["token", "Bearer", "Basic"]),
+        token     = dict(type='str', required=False,),
+        username  = dict(type='str', required=False,),
+        password  = dict(type='str', required=False,),
     )
 
     module = AnsibleModule(
         argument_spec = module_args,
+        required_if = [
+            ('auth_type', 'token', ('token',), False),   
+            ('auth_type', 'Bearer', ('token',), False),   
+            ('auth_type', 'Basic', ('username', 'password'), False),
+        ],
+        required_together = [
+            ('username', 'password'),
+        ],
+        mutually_exclusive = [
+            ('token', 'password'),
+        ],
         supports_check_mode = True
     )
 
     result = dict(
-        message = 'module started execution with argument: ' + module.params.get('argument') 
+        message = 'module started execution with authentication type: ' + module.params.get('auth_type') 
     )
 
     if module.check_mode:
