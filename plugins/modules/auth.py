@@ -13,6 +13,7 @@ short_description: authenticates against a REST API and returns an authenticatio
 
 requirements:
     - requests 2.31.0
+    - base64
 '''
 
 EXAMPLES = r'''
@@ -24,7 +25,53 @@ RETURN = r'''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-import requests
+import requests, base64
+
+def collect_headers(*headers):
+
+    headers_dict = dict()
+
+    for header in headers:
+        for key, value in header.items():
+            headers_dict[key] = value
+
+    return headers_dict
+     
+
+def dispatch_requests():
+
+    auth_type = module.params.get('auth_type')
+    auth = dict()
+
+    if auth_type == 'token':
+        auth['Authorization'] = "token " + module.params.get('token')
+    elif auth_type == 'Bearer':
+        auth['Authorization'] = "Bearer " + module.params.get('token')
+    elif auth_type == 'Basic':
+
+        message = module.params.get('username') + ":" + module.params.get('password')
+        message = message.encode('ascii')
+
+        encoded = base64.b64encode(message)
+        encoded = encoded.decode('ascii')
+
+        auth['Authorization'] = "Basic " + encoded
+        
+
+
+    headers = collect_headers(dict(Accept = "application/json"), auth)
+    response = requests.get(module.params.get('url'), headers=headers)  
+        
+    result['changed'] = True
+
+    if response.status_code >= 200 and response.status_code <= 300:
+
+        result['response'] = response.json()
+
+        return response 
+    else:
+        result['message'] = "Request failed: " + response.text
+        return None
 
 def run_module():
 
@@ -36,6 +83,7 @@ def run_module():
         password  = dict(type='str', required=False,),
     )
 
+    global module
     module = AnsibleModule(
         argument_spec = module_args,
         required_if = [
@@ -52,14 +100,19 @@ def run_module():
         supports_check_mode = True
     )
 
+    global result
     result = dict(
-        message = 'module started execution with authentication type: ' + module.params.get('auth_type') 
+        changed = False,
+        message = 'module started execution with authentication type: ' + module.params.get('auth_type'),
     )
 
     if module.check_mode:
         module.exit_json(**result)
 
-    module.exit_json(**result)
+    if dispatch_requests() is None:
+        module.fail_json(result['message']);
+    else:
+        module.exit_json(**result)
 
 
 def main():
