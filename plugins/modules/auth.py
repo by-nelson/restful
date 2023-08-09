@@ -13,7 +13,6 @@ short_description: authenticates against a REST API and returns an authenticatio
 
 requirements:
     - requests 2.31.0
-    - base64
 '''
 
 EXAMPLES = r'''
@@ -78,9 +77,9 @@ def run_module():
     module_args = dict(
         url       = dict(type='str', required=True),
         auth_type = dict(type='str', required=True, choices=["token", "Bearer", "Basic"]),
-        token     = dict(type='str', required=False,),
+        token     = dict(type='str', required=False, no_log=True),
         username  = dict(type='str', required=False,),
-        password  = dict(type='str', required=False,),
+        password  = dict(type='str', required=False, no_log=True),
     )
 
     global module
